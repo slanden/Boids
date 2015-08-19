@@ -17,9 +17,11 @@ public class behavior_boids : MonoBehaviour
     public float seperationCoefficient = 0.22f;
     public float alignmentCoefficient = 0.5f;
     public float tendToPlaceCoefficient = 0.06f;
+    public float flockHeight = 0f;
+    private float groundLevel = 0f;
 
     //UI elements
-    private UnityEngine.UI.Slider cohSlider;// = GameObject.Find("slider_cohesion").GetComponent<UnityEngine.UI.Slider>();
+    private UnityEngine.UI.Slider cohSlider;
     private UnityEngine.UI.Slider sepSlider;
     private UnityEngine.UI.Slider alignSlider;
     private UnityEngine.UI.Slider tendSlider;
@@ -27,9 +29,7 @@ public class behavior_boids : MonoBehaviour
     //BoundPosition Parameters
     //  Bounds & -Bounds == max & min
     public int xBounds, yBounds, zBounds;
-    float groundLevel = 0f;
 
-    bool playState = false;
     bool arePredatorsAround = false;
 
     void Start()
@@ -45,6 +45,7 @@ public class behavior_boids : MonoBehaviour
         alignSlider.value = alignmentCoefficient;
         tendSlider.value = tendToPlaceCoefficient;
 
+        //zero vector used to instantiate Boids
         Vector3 pos = new Vector3(0, 0, 0);
 
         //instantiate prefab boids
@@ -53,26 +54,27 @@ public class behavior_boids : MonoBehaviour
             GameObject g = Instantiate(Boid, pos, Quaternion.identity) as GameObject;
             g.name = "Boid" + i;
             Boids.Add(g);
-            //Boids.Add(Instantiate(Boid, pos, Quaternion.identity) as GameObject);
         }            
 
+        //parent boids to a game object, set random positions and velocities
         foreach (GameObject b in Boids)
         {
-            //set parent gameobject
             b.transform.parent = gameObject.transform;
-            //set random position
             b.transform.position = new Vector3(Random.Range(randomMin, randomMax),
                                    Random.Range(randomMin, randomMax), Random.Range(randomMin, randomMax));
-            //set initial velocity
+
             b.GetComponent<Boid>().velocity = new Vector3(Random.Range(-1, 1), Random.Range(-1, 1), Random.Range(-1, 1));
         }
 
-        //add populate Predators list with predators in the scene
+        //populate Predators list with predators in the scene
         foreach (GameObject g in FindObjectsOfType<GameObject>())
         {
             if (g.GetComponent<Predator>())
+            {
                 Predators.Add(g);
+            }
         }
+
     }
 
     void Update()
@@ -122,6 +124,7 @@ public class behavior_boids : MonoBehaviour
         */
         #endregion
 
+        //for all predators, check if one is within boids' bounderies. (in the future consider a volume check)
         foreach (GameObject p in Predators)
         {
             if (p.transform.position.x < xBounds /2 && p.transform.position.x > -xBounds /2 ||
@@ -134,19 +137,23 @@ public class behavior_boids : MonoBehaviour
             else
                 arePredatorsAround = false;
         }
+
         MoveAll_NewPositions(arePredatorsAround);        
     }
 
+    // the boids' positions are calculated here using all the rules below
     void MoveAll_NewPositions( bool predatorAround)
     {
         Vector3 v1, v2, v3, v4, v5, v6;
         v1 = v2 = v3 = v4 = v5 = v6 = Vector3.zero;
 
+        //    If a predator is within boid bounderies, run the algorithm with the 'evade()' function
+        //  to check for predators.
         if (predatorAround)
         {
             foreach (GameObject o in Boids)
             {
-                v6 = flee(o);
+                v6 = evade(o);
                 if (o.GetComponent<Boid>().isPerching)
                 {
                     if (o.GetComponent<Boid>().perchTimer < o.GetComponent<Boid>().perchDelay)
@@ -161,6 +168,7 @@ public class behavior_boids : MonoBehaviour
                 }
                 else
                 {
+                    //apply all rules, add them to boid's velocity, apply velocity to boid's position
                     v1 = Cohesion(o) * cohesionCoefficient;
                     v2 = Separation(o) * seperationCoefficient;
                     v3 = Alignment(o) * alignmentCoefficient;
@@ -176,6 +184,7 @@ public class behavior_boids : MonoBehaviour
         }
         else
         {
+            //Boid movement w/o predator checks (if predator is not within range, no sense calculating for them)
             foreach (GameObject o in Boids)
             {
                 if (o.GetComponent<Boid>().isPerching)
@@ -206,29 +215,13 @@ public class behavior_boids : MonoBehaviour
             }
         }
 
-
     }
 
-    //flee
-    void flee(GameObject o)
-    {
-        foreach (GameObject p in Predators)
-        {
-            if (Vector3.Magnitude(p.transform.position - o.transform.position) < separation)
-            {
-                o.GetComponent<Boid>().isPerching = false;
-                o.GetComponent<Boid>().perchTimer = 0;
-                alignmentCoefficient *= -1;
-                cohesionCoefficient *= -1;
-            }
-            else if(alignmentCoefficient < 0 && cohesionCoefficient < 0)
-            {
-                alignmentCoefficient *= -1;
-                cohesionCoefficient *= -1;
-            }
-        }
-    }
-    //rules
+    // rules
+    //////////////////////////////////////////////////////////////////
+
+      //    Find center mass of other boids by everaging their positions,
+      //  then move current boid toward center mass.
     Vector3 Cohesion(GameObject o)
     {
         Vector3 v = Vector3.zero;
@@ -243,9 +236,12 @@ public class behavior_boids : MonoBehaviour
 
         v = v - o.transform.position;
 
+        // move boid by 1% of the distance between center mass of boid group and current boid
         return v / 100f;
     }
 
+    //    if boids are too close to each other, subtract the distance 
+    //  between the two boids from the current boid's velocity
     Vector3 Separation(GameObject o)
     {
         Vector3 v = Vector3.zero;
@@ -254,23 +250,20 @@ public class behavior_boids : MonoBehaviour
         foreach (GameObject b in Boids)
         {
             if (b != o)
+            {
                 if (Vector3.Magnitude(b.transform.position - o.transform.position) < separation)
+                {
                     v -= (b.transform.position - o.transform.position);
+                }
+            }
         }
 
-        //loop all physical game objects
-        //AllGameObjects.Remove(o);
-
-        //foreach (GameObject b in AllGameObjects)
-        //{
-        //        if (Vector3.Magnitude(b.transform.position - o.transform.position) < separation)
-        //            v -= (b.transform.position - o.transform.position);
-        //}
-        //AllGameObjects.Add(o);
-
+        //move boid by 1%
         return v / 100f;
     }
 
+    //    Align boids' velocities by averaging them and subtracting
+    //  the current boid's velocity from the average
     Vector3 Alignment(GameObject o)
     {
         Vector3 v = Vector3.zero;
@@ -286,17 +279,17 @@ public class behavior_boids : MonoBehaviour
         return (v - o.GetComponent<Boid>().velocity) / 100f;
     }
 
+    //normalize velocity, then apply speed factor to a keep steady pace
     void LimitVelocity(GameObject o)
     {
         if (o.GetComponent<Boid>().velocity.magnitude > speedLimit)
+        {
             o.GetComponent<Boid>().velocity = (o.GetComponent<Boid>().velocity /
                 o.GetComponent<Boid>().velocity.magnitude) * speedLimit;
-
-        //if (v.magnitude > speedLimit)
-        //    v = (v / v.magnitude) * speedLimit;
+        }
     }
 
-    //bound position & perching
+    // push boids away from boundaries if they're exceeding them
     Vector3 BoundPosition(GameObject o)
     {
         Vector3 v = new Vector3(0, 0, 0);
@@ -313,6 +306,8 @@ public class behavior_boids : MonoBehaviour
             v.z = 10;
         else if (o.transform.position.z > zBounds)
             v.z = -10;
+
+        // check if boid should perch on the ground
         if (o.transform.position.y < groundLevel + 0.5f)
         {
             o.transform.position = new Vector3(o.transform.position.x, (groundLevel + 0.5f), o.transform.position.z);
@@ -322,6 +317,8 @@ public class behavior_boids : MonoBehaviour
         return v;
     }
 
+    // apply a force in a given direction
+    //      (not yet implemented)
     Vector3 StrongWind(GameObject o)
     {
         Vector3 v = Vector3.zero;
@@ -329,15 +326,38 @@ public class behavior_boids : MonoBehaviour
         return v;
     }
 
-    //tendency towards a particular place
+    // move boids toward a certain position
     Vector3 TendToPlace(GameObject o)
     {
         Vector3 v = destination.transform.position;
+        v.y += flockHeight;
 
+        //1% at a time
         return (v - o.transform.position) / 100f;
     }
 
-    //predators
-
+    // evasive maneuver when a predator is too close
+    Vector3 evade(GameObject o)
+    {
+        Vector3 v = Vector3.zero;
+        foreach (GameObject p in Predators)
+        {
+            //    if predator is near boid, break boid's perching simulation 
+            //  and move boid away from 'TendToPlace()' destination
+            if (Vector3.Magnitude(p.transform.position - o.transform.position) < separation + 4)
+            {
+                o.GetComponent<Boid>().isPerching = false;
+                o.GetComponent<Boid>().perchTimer = 0;
+                tendToPlaceCoefficient *= -1;
+                v -= (p.transform.position - o.transform.position);
+            }
+            // if the above condition was previously met, move toward 'TendToPlace()' destination
+            else if (tendToPlaceCoefficient < 0)
+            {
+                tendToPlaceCoefficient *= -1;
+            }
+        }
+        return v / 100;
+    }
 
 }
