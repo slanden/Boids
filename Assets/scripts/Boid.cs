@@ -7,7 +7,7 @@ public class Boid : MonoBehaviour
     public float speed = 1;
     public bool isPerching = false;
     public float perchTimer = 0f;
-    public float perchDelay = 1.25f;
+    public float perchDelay = 22.25f;
     //public Vector3 BVelocity
     //{
     //    set
