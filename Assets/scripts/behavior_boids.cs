@@ -7,18 +7,18 @@ public class behavior_boids : MonoBehaviour
     List<GameObject> Boids = new List<GameObject>();
     List<GameObject> Predators = new List<GameObject>();
     public GameObject Boid, Predator, destination;
-    public float randomMin = 1;
+    public float randomMin = 10;
     public float randomMax = 30;
-    public float boidCount = 0;
-    public float separation = 1;
+    public float boidCount = 100;
+    public float separation = 6;
     public float speedLimit = 1;
 
-    public float cohesionCoefficient = 0.35f;
-    public float seperationCoefficient = 0.22f;
-    public float alignmentCoefficient = 0.5f;
-    public float tendToPlaceCoefficient = 0.06f;
-    public float flockHeight = 0f;
-    private float groundLevel = 0f;
+    public float cohesionCoefficient = 0.6f;
+    public float seperationCoefficient = 0.5f;
+    public float alignmentCoefficient = 0.23f;
+    public float tendToPlaceCoefficient = 0.07f;
+    public float flockHeight = 20;
+    private float groundLevel = 0;
 
     //UI elements
     private UnityEngine.UI.Slider cohSlider;
@@ -28,7 +28,9 @@ public class behavior_boids : MonoBehaviour
 
     //BoundPosition Parameters
     //  Bounds & -Bounds == max & min
-    public int xBounds, yBounds, zBounds;
+    public int xBounds = 100;
+    public int yBounds = 100;
+    public int zBounds = 10;
 
     bool arePredatorsAround = false;
 
@@ -70,9 +72,7 @@ public class behavior_boids : MonoBehaviour
         foreach (GameObject g in FindObjectsOfType<GameObject>())
         {
             if (g.GetComponent<Predator>())
-            {
                 Predators.Add(g);
-            }
         }
 
     }
@@ -84,45 +84,6 @@ public class behavior_boids : MonoBehaviour
         seperationCoefficient = sepSlider.value;
         alignmentCoefficient = alignSlider.value;
         tendToPlaceCoefficient = tendSlider.value;
-
-        #region
-        /*
-        if (Input.GetKeyDown(KeyCode.Space) && playState)
-            playState = false;
-        else if (Input.GetKeyDown(KeyCode.Space) && !playState)
-            playState = true;
-
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            Vector3 v1, v2, v3, v4, v5, v6;
-            v1 = v2 = v3 = v4 = v5 = v6 = Vector3.zero;
-
-            foreach (GameObject o in Boids)
-            {
-                v1 = Cohesion(o) * cohesionCoefficient;
-                v2 = Separation(o) * seperationCoefficient;
-                v3 = Alignment(o) * alignmentCoefficient;
-
-                v4 = BoundPosition(o);
-                v5 = TendToPlace(o);
-
-                //Debug.Log("Cohesion:   " + v1);
-                //Debug.Log("Separation: " + v2);
-                //Debug.Log("Alignment:  " + v3);
-                Debug.Log(o.name + " initial velocity: " + o.GetComponent<Boid>().velocity);
-                o.GetComponent<Boid>().velocity += v1;// + v2 + v3;// + v4 + v5;
-                Debug.Log(o.name + " velocity after cohesion: " + o.GetComponent<Boid>().velocity);
-                //Debug.Log(o.name + " velocity before limiting: " + o.GetComponent<Boid>().velocity);
-                LimitVelocity(o);
-                Debug.Log(o.name + " velocity after limiting: " + o.GetComponent<Boid>().velocity);
-                Debug.Log(o.name + " initial position: " + o.transform.position);
-                o.transform.position += o.GetComponent<Boid>().velocity;
-                Debug.Log(o.name + " final position: " + o.transform.position);
-                o.transform.forward = o.GetComponent<Boid>().velocity.normalized;
-            }
-        }
-        */
-        #endregion
 
         //for all predators, check if one is within boids' bounderies. (in the future consider a volume check)
         foreach (GameObject p in Predators)
@@ -147,7 +108,7 @@ public class behavior_boids : MonoBehaviour
         Vector3 v1, v2, v3, v4, v5, v6;
         v1 = v2 = v3 = v4 = v5 = v6 = Vector3.zero;
 
-        //    If a predator is within boid bounderies, run the algorithm with the 'evade()' function
+        //  If a predator is within boid bounderies, run algorithm with the 'evade()' function
         //  to check for predators.
         if (predatorAround)
         {
@@ -164,6 +125,9 @@ public class behavior_boids : MonoBehaviour
                     {
                         o.GetComponent<Boid>().isPerching = false;
                         o.GetComponent<Boid>().perchTimer = 0;
+
+                        //reopen bat wings
+                        o.transform.GetChild(1).localScale += new Vector3(0.9f, 0, 0);
                     }
                 }
                 else
@@ -197,6 +161,9 @@ public class behavior_boids : MonoBehaviour
                     {
                         o.GetComponent<Boid>().isPerching = false;
                         o.GetComponent<Boid>().perchTimer = 0;
+
+                        //reopen bat wings
+                        o.transform.GetChild(1).localScale += new Vector3(0.9f, 0, 0);
                     }
                 }
                 else
@@ -312,6 +279,8 @@ public class behavior_boids : MonoBehaviour
         {
             o.transform.position = new Vector3(o.transform.position.x, (groundLevel + 0.5f), o.transform.position.z);
             o.GetComponent<Boid>().isPerching = true;
+            //cheap way to simulate bat's wings being closed
+            o.transform.GetChild(1).localScale -= new Vector3(0.9f,0,0);
         }
 
         return v;
