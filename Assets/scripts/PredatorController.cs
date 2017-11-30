@@ -8,7 +8,6 @@ public class PredatorController : MonoBehaviour
 
     void Update()
     {
-
         GetInput();
     }
 
@@ -18,14 +17,14 @@ public class PredatorController : MonoBehaviour
 
         if(Input.GetKey(KeyCode.A))
         {
-            v.x += speed;
+            v.x += 1;
         }
         if(Input.GetKey(KeyCode.D))
         {
-            v.x -= speed;
+            v.x -= 1;
         }
 
-        return predator.transform.position += v;
+        return predator.transform.position += v * speed;
     }
     
 

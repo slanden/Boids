@@ -47,27 +47,6 @@ public class behavior_boids : MonoBehaviour
         alignSlider.value = alignmentCoefficient;
         tendSlider.value = tendToPlaceCoefficient;
 
-        //zero vector used to instantiate Boids
-        Vector3 pos = new Vector3(0, 0, 0);
-
-        //instantiate prefab boids
-        for (int i = 0; i < boidCount; ++i)
-        {
-            GameObject g = Instantiate(Boid, pos, Quaternion.identity) as GameObject;
-            g.name = "Boid" + i;
-            Boids.Add(g);
-        }            
-
-        //parent boids to a game object, set random positions and velocities
-        foreach (GameObject b in Boids)
-        {
-            b.transform.parent = gameObject.transform;
-            b.transform.position = new Vector3(Random.Range(randomMin, randomMax),
-                                   Random.Range(randomMin, randomMax), Random.Range(randomMin, randomMax));
-
-            b.GetComponent<Boid>().velocity = new Vector3(Random.Range(-1, 1), Random.Range(-1, 1), Random.Range(-1, 1));
-        }
-
         //populate Predators list with predators in the scene
         foreach (GameObject g in FindObjectsOfType<GameObject>())
         {
@@ -75,6 +54,20 @@ public class behavior_boids : MonoBehaviour
                 Predators.Add(g);
         }
 
+        //instantiate prefab boids
+        for (int i = 0; i < boidCount; ++i)
+        {
+            GameObject g = Instantiate(Boid, Vector3.zero, Quaternion.identity) as GameObject;
+            //g.name = "Boid" + i;
+            //parent boids to a game object, set random positions and velocities
+            g.transform.parent = gameObject.transform;
+            g.transform.position = new Vector3(Random.Range(randomMin, randomMax),
+                                   Random.Range(randomMin, randomMax), Random.Range(randomMin, randomMax));
+
+            g.GetComponent<Boid>().velocity = new Vector3(Random.Range(-1, 1), Random.Range(-1, 1), Random.Range(-1, 1));
+
+            Boids.Add(g);
+        }
     }
 
     void Update()
@@ -99,13 +92,13 @@ public class behavior_boids : MonoBehaviour
                 arePredatorsAround = false;
         }
 
-        MoveAll_NewPositions(arePredatorsAround);        
+        NewPositions(arePredatorsAround);        
     }
 
     // the boids' positions are calculated here using all the rules below
-    void MoveAll_NewPositions( bool predatorAround)
+    Vector3 v1, v2, v3, v4, v5, v6;
+    void NewPositions(bool predatorAround)
     {
-        Vector3 v1, v2, v3, v4, v5, v6;
         v1 = v2 = v3 = v4 = v5 = v6 = Vector3.zero;
 
         //  If a predator is within boid bounderies, run algorithm with the 'evade()' function
@@ -115,73 +108,47 @@ public class behavior_boids : MonoBehaviour
             foreach (GameObject o in Boids)
             {
                 v6 = evade(o);
-                if (o.GetComponent<Boid>().isPerching)
-                {
-                    if (o.GetComponent<Boid>().perchTimer < o.GetComponent<Boid>().perchDelay)
-                    {
-                        o.GetComponent<Boid>().perchTimer += Time.deltaTime;
-                    }
-                    else
-                    {
-                        o.GetComponent<Boid>().isPerching = false;
-                        o.GetComponent<Boid>().perchTimer = 0;
-
-                        //reopen bat wings
-                        o.transform.GetChild(1).localScale += new Vector3(0.9f, 0, 0);
-                    }
-                }
-                else
-                {
-                    //apply all rules, add them to boid's velocity, apply velocity to boid's position
-                    v1 = Cohesion(o) * cohesionCoefficient;
-                    v2 = Separation(o) * seperationCoefficient;
-                    v3 = Alignment(o) * alignmentCoefficient;
-                    v4 = BoundPosition(o);
-                    v5 = TendToPlace(o) * tendToPlaceCoefficient;
-
-                    o.GetComponent<Boid>().velocity += v1 + v2 + v3 + v4 + v5 + v6;
-                    LimitVelocity(o);
-                    o.transform.position += o.GetComponent<Boid>().velocity;
-                    o.transform.forward = Vector3.Normalize(o.GetComponent<Boid>().velocity);
-                }
+                CalcPosition(o);
             }
         }
         else
         {
             //Boid movement w/o predator checks (if predator is not within range, no sense calculating for them)
             foreach (GameObject o in Boids)
-            {
-                if (o.GetComponent<Boid>().isPerching)
-                {
-                    if (o.GetComponent<Boid>().perchTimer < o.GetComponent<Boid>().perchDelay)
-                    {
-                        o.GetComponent<Boid>().perchTimer += Time.deltaTime;
-                    }
-                    else
-                    {
-                        o.GetComponent<Boid>().isPerching = false;
-                        o.GetComponent<Boid>().perchTimer = 0;
-
-                        //reopen bat wings
-                        o.transform.GetChild(1).localScale += new Vector3(0.9f, 0, 0);
-                    }
-                }
-                else
-                {
-                    v1 = Cohesion(o) * cohesionCoefficient;
-                    v2 = Separation(o) * seperationCoefficient;
-                    v3 = Alignment(o) * alignmentCoefficient;
-                    v4 = BoundPosition(o);
-                    v5 = TendToPlace(o) * tendToPlaceCoefficient;
-
-                    o.GetComponent<Boid>().velocity += v1 + v2 + v3 + v4 + v5;
-                    LimitVelocity(o);
-                    o.transform.position += o.GetComponent<Boid>().velocity;
-                    o.transform.forward = Vector3.Normalize(o.GetComponent<Boid>().velocity);
-                }
-            }
+                CalcPosition(o);
         }
 
+    }
+    void CalcPosition(GameObject o)
+    {
+        if (o.GetComponent<Boid>().isPerching)
+        {
+            if (o.GetComponent<Boid>().perchTimer < o.GetComponent<Boid>().perchDelay)
+            {
+                o.GetComponent<Boid>().perchTimer += Time.deltaTime;
+            }
+            else
+            {
+                o.GetComponent<Boid>().isPerching = false;
+                o.GetComponent<Boid>().perchTimer = 0;
+
+                //reopen bat wings
+                o.transform.GetChild(1).localScale += new Vector3(0.9f, 0, 0);
+            }
+        }
+        else
+        {
+            v1 = Cohesion(o) * cohesionCoefficient;
+            v2 = Separation(o) * seperationCoefficient;
+            v3 = Alignment(o) * alignmentCoefficient;
+            v4 = BoundPosition(o);
+            v5 = TendToPlace(o) * tendToPlaceCoefficient;
+
+            o.GetComponent<Boid>().velocity += v1 + v2 + v3 + v4 + v5 + v6;
+            LimitVelocity(o);
+            o.transform.position += o.GetComponent<Boid>().velocity;
+            o.transform.forward = Vector3.Normalize(o.GetComponent<Boid>().velocity);
+        }
     }
 
     // rules
